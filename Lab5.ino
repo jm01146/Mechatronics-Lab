@@ -3,7 +3,7 @@
 // Won't re-arm until it falls below THRESHOLD_DOWN. Also has a small LOCKOUT_US.
 
 const uint8_t SENSOR_PIN = A0;
-const uint8_t LED_PIN    = LED_BUILTIN;
+const uint8_t LED_PIN = LED_BUILTIN;
 
 const int ADC_BITS = 12;       
 const int THRESHOLD_UP = 850;     // set between your dark/lit levels
