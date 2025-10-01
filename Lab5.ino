@@ -5,11 +5,11 @@
 const uint8_t SENSOR_PIN = A0;
 const uint8_t LED_PIN    = LED_BUILTIN;
 
-const int     ADC_BITS        = 12;       
-const int     THRESHOLD_UP    = 850;     // set between your dark/lit levels
-const int     THRESHOLD_DOWN  = 800;     // a little below THRESHOLD_UP
-const uint32_t QUALIFY_US     = 2000;     // must remain above THRESHOLD_UP this long to count
-const uint32_t LOCKOUT_US     = 2000;     // ignore new events within this time after a count
+const int ADC_BITS = 12;       
+const int THRESHOLD_UP = 850;     // set between your dark/lit levels
+const int THRESHOLD_DOWN = 800;     // a little below THRESHOLD_UP
+const uint32_t QUALIFY_US = 2000;     // must remain above THRESHOLD_UP this long to count
+const uint32_t LOCKOUT_US = 2000;     // ignore new events within this time after a count
 
 unsigned long count = 0;
 
