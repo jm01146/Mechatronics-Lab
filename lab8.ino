@@ -274,3 +274,87 @@ void loop() {
     // }
   }
 }
+
+
+
+
+#include <LiquidCrystal.h>
+
+// ---- LCD (parallel, 4-bit) ----
+LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
+
+// ---- Quadrature input (decoder) ----
+const int inA = 2;
+const int inB = 3;
+volatile long encoderCount = 0;
+
+// ---- Quadrature generator (loopback) ----
+const int outA = 4;
+const int outB = 5;
+const int dirBtn = 6;   // optional: LOW = reverse
+const int potPin = A0;  // optional: speed control 0..1023
+
+#include <IntervalTimer.h>
+IntervalTimer genTimer;
+
+volatile uint8_t qidx = 0;
+volatile bool cw = true;  // true = CW sequence
+
+// 4-state quadrature sequence: 00 -> 01 -> 11 -> 10 -> (repeat)
+const uint8_t quad[4][2] = {
+  {0,0}, {0,1}, {1,1}, {1,0}
+};
+
+void setup() {
+  // LCD
+  lcd.begin(16, 2);
+  lcd.print("Quadrature demo");
+
+  // Decoder inputs
+  pinMode(inA, INPUT_PULLUP);
+  pinMode(inB, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(inA), isrDecode, CHANGE); // decode on A edges
+
+  // Generator outputs
+  pinMode(outA, OUTPUT);
+  pinMode(outB, OUTPUT);
+
+  // Controls
+  pinMode(dirBtn, INPUT_PULLUP);
+  analogReadResolution(10);
+
+  // Start generator at a reasonable step interval (us)
+  genTimer.begin(genISR, 1000);  // ~1 kHz step rate (adjusted dynamically)
+}
+
+void loop() {
+  // Optional: read speed and direction
+  int pot = analogRead(potPin);           // 0..1023
+  unsigned long us = map(pot, 0, 1023, 8000, 200); // slower..faster
+  genTimer.update(us);
+
+  cw = (digitalRead(dirBtn) == HIGH);     // HIGH=CW, press to reverse
+
+  // Show count
+  lcd.setCursor(0, 1);
+  lcd.print("Count: ");
+  lcd.print(encoderCount);
+  lcd.print("      "); // clear trail
+}
+
+// ---- Generator ISR: advances quadrature state and drives outA/outB ----
+void genISR() {
+  // Advance or reverse the 4-state sequence
+  if (cw) qidx = (qidx + 1) & 0x03; else qidx = (qidx + 3) & 0x03;
+
+  digitalWriteFast(outA, quad[qidx][0]);
+  digitalWriteFast(outB, quad[qidx][1]);
+}
+
+// ---- Decoder ISR on A edges: read B to decide direction ----
+void isrDecode() {
+  int A = digitalReadFast(inA);
+  int B = digitalReadFast(inB);
+  // Direction: on A transition, if B != A, it's CW; else CCW
+  if (B != A) encoderCount++; else encoderCount--;
+}
