@@ -280,81 +280,71 @@ void loop() {
 
 #include <LiquidCrystal.h>
 
-// ---- LCD (parallel, 4-bit) ----
+// LCD in 4-bit mode: RS, E, D4, D5, D6, D7
 LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
 
-// ---- Quadrature input (decoder) ----
-const int inA = 2;
-const int inB = 3;
-volatile long encoderCount = 0;
+// Buttons
+const int INC_PIN = 2;   // increment count
+const int DEC_PIN = 3;   // decrement count
 
-// ---- Quadrature generator (loopback) ----
-const int outA = 4;
-const int outB = 5;
-const int dirBtn = 6;   // optional: LOW = reverse
-const int potPin = A0;  // optional: speed control 0..1023
+volatile long counter = 0;
 
-#include <IntervalTimer.h>
-IntervalTimer genTimer;
+// Simple debounce for ISRs (milliseconds)
+volatile unsigned long lastIncMs = 0;
+volatile unsigned long lastDecMs = 0;
+const unsigned long DEBOUNCE_MS = 120;
 
-volatile uint8_t qidx = 0;
-volatile bool cw = true;  // true = CW sequence
-
-// 4-state quadrature sequence: 00 -> 01 -> 11 -> 10 -> (repeat)
-const uint8_t quad[4][2] = {
-  {0,0}, {0,1}, {1,1}, {1,0}
-};
+// Flag to refresh LCD from loop (avoid doing LCD work in ISR)
+volatile bool needsRefresh = true;
 
 void setup() {
   // LCD
   lcd.begin(16, 2);
-  lcd.print("Quadrature demo");
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Quadrature Sim");
+  lcd.setCursor(0, 1);
+  lcd.print("Count: 0");
 
-  // Decoder inputs
-  pinMode(inA, INPUT_PULLUP);
-  pinMode(inB, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(inA), isrDecode, CHANGE); // decode on A edges
+  // Buttons with internal pull-ups
+  pinMode(INC_PIN, INPUT_PULLUP);
+  pinMode(DEC_PIN, INPUT_PULLUP);
 
-  // Generator outputs
-  pinMode(outA, OUTPUT);
-  pinMode(outB, OUTPUT);
-
-  // Controls
-  pinMode(dirBtn, INPUT_PULLUP);
-  analogReadResolution(10);
-
-  // Start generator at a reasonable step interval (us)
-  genTimer.begin(genISR, 1000);  // ~1 kHz step rate (adjusted dynamically)
+  // Interrupts on falling edge (press)
+  attachInterrupt(digitalPinToInterrupt(INC_PIN), onInc, FALLING);
+  attachInterrupt(digitalPinToInterrupt(DEC_PIN), onDec, FALLING);
 }
 
 void loop() {
-  // Optional: read speed and direction
-  int pot = analogRead(potPin);           // 0..1023
-  unsigned long us = map(pot, 0, 1023, 8000, 200); // slower..faster
-  genTimer.update(us);
+  // Update LCD only when needed
+  if (needsRefresh) {
+    noInterrupts();
+    long c = counter;
+    needsRefresh = false;
+    interrupts();
 
-  cw = (digitalRead(dirBtn) == HIGH);     // HIGH=CW, press to reverse
-
-  // Show count
-  lcd.setCursor(0, 1);
-  lcd.print("Count: ");
-  lcd.print(encoderCount);
-  lcd.print("      "); // clear trail
+    lcd.setCursor(0, 1);
+    lcd.print("Count: ");
+    lcd.print(c);
+    lcd.print("        "); // clear any leftover chars
+  }
 }
 
-// ---- Generator ISR: advances quadrature state and drives outA/outB ----
-void genISR() {
-  // Advance or reverse the 4-state sequence
-  if (cw) qidx = (qidx + 1) & 0x03; else qidx = (qidx + 3) & 0x03;
-
-  digitalWriteFast(outA, quad[qidx][0]);
-  digitalWriteFast(outB, quad[qidx][1]);
+// --- ISRs ---
+void onInc() {
+  unsigned long now = millis();
+  if (now - lastIncMs >= DEBOUNCE_MS) {
+    counter++;
+    lastIncMs = now;
+    needsRefresh = true;
+  }
 }
 
-// ---- Decoder ISR on A edges: read B to decide direction ----
-void isrDecode() {
-  int A = digitalReadFast(inA);
-  int B = digitalReadFast(inB);
-  // Direction: on A transition, if B != A, it's CW; else CCW
-  if (B != A) encoderCount++; else encoderCount--;
+void onDec() {
+  unsigned long now = millis();
+  if (now - lastDecMs >= DEBOUNCE_MS) {
+    counter--;
+    lastDecMs = now;
+    needsRefresh = true;
+  }
 }
