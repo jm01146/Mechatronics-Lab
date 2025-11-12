@@ -41,7 +41,7 @@ const uint32_t DEBOUNCE_US = 3000;              // ~3 ms debounce
 
 float fastest_ms = 1e9; // silly large
 
-void IRAM_ATTR isrA() {
+void isrA() {
   uint32_t now = micros();
   if (now - lastA_us < DEBOUNCE_US) return;
   lastA_us = now;
@@ -50,7 +50,7 @@ void IRAM_ATTR isrA() {
   first_latched = true;
 }
 
-void IRAM_ATTR isrB() {
+void isrB() {
   uint32_t now = micros();
   if (now - lastB_us < DEBOUNCE_US) return;
   lastB_us = now;
@@ -192,92 +192,6 @@ void loop() {
 
 
 // PART 4
-#define ENC_A 2
-#define ENC_B 3
-
-// --- Optional LCD ---
-// #include <Wire.h>
-// #include <LiquidCrystal_I2C.h>
-// LiquidCrystal_I2C lcd(0x27, 16, 2);  // change address if needed
-// bool lcd_ok = false;
-
-volatile int32_t position = 0;
-// Track last 2-bit state (A<<1 | B)
-volatile uint8_t lastAB = 0;
-
-// Transition table for quadrature (returns -1, 0, +1 per state change)
-// Index: (prev<<2) | curr
-// Valid forward steps: 01->11->10->00->01  (and reverse opposite)
-const int8_t qtab[16] = {
-  0,  -1,  +1,   0,
-  +1,  0,   0,  -1,
-  -1,  0,   0,  +1,
-   0,  +1, -1,   0
-};
-
-inline uint8_t readAB() {
-  uint8_t a = digitalReadFast(ENC_A);
-  uint8_t b = digitalReadFast(ENC_B);
-  return (a << 1) | b;
-}
-
-void handleQuad() {
-  uint8_t curr = readAB();
-  uint8_t idx = (lastAB << 2) | curr;
-  int8_t step = qtab[idx];
-  if (step != 0) position += step;
-  lastAB = curr;
-}
-
-void IRAM_ATTR isrA() { handleQuad(); }
-void IRAM_ATTR isrB() { handleQuad(); }
-
-void setup() {
-  pinMode(ENC_A, INPUT_PULLUP);
-  pinMode(ENC_B, INPUT_PULLUP);
-  lastAB = readAB();
-
-  attachInterrupt(digitalPinToInterrupt(ENC_A), isrA, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ENC_B), isrB, CHANGE);
-
-  Serial.begin(115200);
-  Serial.println("Part 4: Quadrature position on Serial (optional LCD code inside).");
-
-  // --- Optional LCD init ---
-  // Wire.begin();
-  // if (lcd.begin()) {
-  //   lcd.backlight();
-  //   lcd.clear();
-  //   lcd.print("Quat Decoder");
-  //   lcd.setCursor(0,1);
-  //   lcd.print("Pos: 0");
-  //   lcd_ok = true;
-  // }
-}
-
-void loop() {
-  static int32_t last_shown = INT32_MIN;
-  noInterrupts();
-  int32_t pos = position;
-  interrupts();
-
-  if (pos != last_shown) {
-    last_shown = pos;
-    Serial.print("Position: ");
-    Serial.println(pos);
-
-    // --- Optional LCD update ---
-    // if (lcd_ok) {
-    //   lcd.clear();
-    //   lcd.setCursor(0,0); lcd.print("Quadrature Cnt");
-    //   lcd.setCursor(0,1); lcd.print("Pos: "); lcd.print(pos);
-    // }
-  }
-}
-
-
-
-
 #include <LiquidCrystal.h>
 
 // LCD in 4-bit mode: RS, E, D4, D5, D6, D7
