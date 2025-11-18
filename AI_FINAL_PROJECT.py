@@ -5,11 +5,7 @@ from typing import Tuple, Dict, Any, List
 # Class to generate 25x25 grid maze
 class MazeEnv:
     """
-    Agent has:
-      - position (x, y)
-      - orientation (0: up, 1: right, 2: down, 3: left)
-      - three proximity sensors (front, left, right) as blocked/not-blocked flags.
-
+    Agent has, position (x, y), orientation (0: up, 1: right, 2: down, 3: left), three proximity sensors (front, left, right) as blocked/not-blocked flags.
     Actions:
       0: forward
       1: backward
@@ -23,7 +19,7 @@ class MazeEnv:
         3: (0, -1),  # left
     }
 
-    # Because this is an init def this will go first before anything else is ran.
+    # init the parameters of the Class MazeEnv
     def __init__(self, size: int = 25, max_steps: int = 200, seed: int = 42):
         self.size = size
         self.max_steps = max_steps
@@ -37,7 +33,7 @@ class MazeEnv:
         self.ori = 0  # facing up
         self.steps_taken = 0
 
-        # Reward parameters (tune these to shape behavior)
+        # Reward parameters (we need to tune these and record as we go)
         self.step_reward = -0.05          # small time penalty
         self.invalid_penalty = -1.0       # hitting wall / boundary
         self.goal_reward = 10.0           # reaching the target cell
@@ -86,7 +82,7 @@ class MazeEnv:
 
     def _get_sensor_readings(self) -> Tuple[int, int, int]:
         """
-        Return (front_blocked, left_blocked, right_blocked) as 0/1 integers.
+        Return blocked or non-blocked as 0/1 integers.
         This is a simplified approximation of 3pi+ distance readings.
         """
         x, y = self.pos
@@ -106,11 +102,9 @@ class MazeEnv:
     def _get_state(self) -> Tuple[int, int, int, int, int, int]:
         """
         State = (x, y, orientation, front_blocked, left_blocked, right_blocked)
-
-        This encodes:
           - position
           - orientation
-          - distance readings collapsed into local blockage flags.
+          - distance readings as blocked flags.
         """
         x, y = self.pos
         front_b, left_b, right_b = self._get_sensor_readings()
@@ -125,8 +119,7 @@ class MazeEnv:
     def step(self, action: int) -> Tuple[Tuple[int, int, int, int, int, int], float, bool, Dict[str, Any]]:
         """
         Apply an action, return (next_state, reward, done, info).
-
-        info contains:
+        which really is just 
           - "invalid": bool (collision / boundary violation)
           - "success": bool (if episode terminated at goal)
         """
@@ -187,7 +180,7 @@ class MazeEnv:
 
     def render_ascii(self) -> None:
         """
-        Quick text rendering of the maze for sanity check.
+        Hopefully this allows us to see what the hell the agent is doing becuase omg we need to prove this.
         'S' start, 'G' goal, 'A' agent, '#' wall, '.' free cell.
         """
         grid = [['#' if self.maze[i][j] == 1 else '.' for j in range(self.size)] for i in range(self.size)]
